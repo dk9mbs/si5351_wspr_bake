@@ -20,17 +20,20 @@
 #include "si5351.h"
 #include "Wire.h"
 
-#define QRG 47420000ULL
-#define OFFSET 10000ULL
-#define SYMBOL0 219ULL
-#define SYMBOL1 73ULL
-#define SYMBOL2 73ULL
+#define QRG 47420000ULL  // qrg for mw band
+#define OFFSET 10000ULL //wspr band 0-200Hz
+#define SYMBOL0 219ULL 
+#define SYMBOL1 73ULL  //1,46 Hz over center qrg
+#define SYMBOL2 73ULL  //1,46 Hz under center qrg
 #define SYMBOL3 219ULL
-#define DELAY 683ULL
-
+#define DELAY 683ULL    //Duration for one symbol
+#define TXLED 10
+#define INITLED 11
+#define STARTPIN 12
 Si5351 si5351;
 
-// DK9MBS JO52 10
+// DK9MBS JO52 10 generated with wsprcode.exe unter wine (windows emulator)
+
 byte symbols[162] = { 
 1,3,2,0,2,2,0,2,1,2,0,2,1,3,3,0,2,0,3,2,2,1,0,3,1,1,3,2,0,2,\
 0,2,2,2,1,2,0,1,0,3,2,0,2,2,2,0,3,0,1,1,0,0,1,3,0,3,0,2,0,1,\
@@ -39,9 +42,6 @@ byte symbols[162] = {
 2,1,2,0,2,3,3,1,0,2,0,0,0,3,2,1,2,2,3,1,0,2,2,2,0,2,0,3,1,2,\
 3,0,3,3,2,2,2,3,3,2,0,0                   
 };
-
-
-
 
 const unsigned long f0 = QRG + OFFSET - SYMBOL0;  
 const unsigned long f1 = QRG + OFFSET - SYMBOL1;
@@ -52,9 +52,13 @@ unsigned long qrg[4] = {f0,f1,f2,f3};
 void setup()
 {
   bool i2c_found;
-
-  pinMode(12, INPUT_PULLUP);
-
+  
+  pinMode(STARTPIN, INPUT_PULLUP); //startbutton => set to ground for start
+  pinMode(INITLED, OUTPUT); //status
+  pinMode(TXLED, OUTPUT); //send control
+  digitalWrite(INITLED,LOW);
+  digitalWrite(TXLED,LOW);
+  
   Serial.begin(57600);
   i2c_found = si5351.init(SI5351_CRYSTAL_LOAD_8PF, 0, 0);
   if(!i2c_found)
@@ -68,15 +72,14 @@ void setup()
 
   si5351.update_status();
   delay(1000);
-
+  digitalWrite(INITLED,HIGH);
   
 }
-
 
 void wsprStart() {
 
   Serial.println ("Txing wspr ...");
-  
+  digitalWrite(TXLED,HIGH);
   si5351.output_enable(SI5351_CLK2, 1);
   for(byte x=0;x<162;x++) {
     unsigned long long f=qrg[symbols[x]];  
@@ -86,6 +89,7 @@ void wsprStart() {
   }
 
   si5351.output_enable(SI5351_CLK2, 0);
+  digitalWrite(TXLED,LOW);
   Serial.println("Ready!");
 
 }
@@ -93,7 +97,7 @@ void wsprStart() {
 
 void loop() {
 
-  if(!digitalRead(12)) { 
+  if(!digitalRead(STARTPIN)) { 
     wsprStart();
   }
 
